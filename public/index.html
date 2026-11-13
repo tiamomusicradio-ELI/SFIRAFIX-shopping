@@ -76,7 +76,7 @@ td input{padding:8px;text-align:center}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-let user="",rows=[],pdfB64="";
+let user="",rows=[],pdfB64="",pdfBlob=null,fileId="";
 const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();
 const toB64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b);});
 function addRow(){const tr=document.createElement('tr');
@@ -100,7 +100,7 @@ $('finish').onclick=async()=>{
   $('tb3').innerHTML=rows.map(r=>'<tr>'+r.map(c=>'<td>'+c.replace(/[<>&]/g,'')+'</td>').join('')+'</tr>').join('');
   show('s3');
   $('msg').textContent='שומר בדרייב...';
-  try{pdfB64=await toB64(await makePdf());const j=await post('/api/save',{pdf:pdfB64});$('msg').textContent=j.ok?'נשמר בדרייב של הפרויקט ✔':(j.msg||'השמירה נכשלה');}catch(e){$('msg').textContent='השמירה בדרייב נכשלה';}
+  try{pdfBlob=await makePdf();pdfB64=await toB64(pdfBlob);const j=await post('/api/save',{pdf:pdfB64});if(j.ok)fileId=j.fileId||'';$('msg').textContent=j.ok?'נשמר בדרייב של הפרויקט ✔':(j.msg||'השמירה נכשלה');}catch(e){$('msg').textContent='השמירה בדרייב נכשלה';}
 };
 async function makePdf(){
   const canvas=await html2canvas($('doc'),{scale:2,backgroundColor:'#fff'});
@@ -120,12 +120,29 @@ async function sharePdf(){
   $('msg').textContent='אם ההורדה לא התחילה, פתחו את הדף בדפדפן או במכשיר נייד.';
 }
 $('pdf').onclick=sharePdf;
-const summary=()=>$('t3').textContent+'\n'+rows.map(r=>r.join(' | ')).join('\n')+'\nנקנה בתאריך: '+$('d3').textContent+'\nעל-ידי: '+user+'\nתאריך ושעת מילוי: '+$('f3').textContent;
 $('sm').onclick=async()=>{const m=$('mail').value.trim();if(!m){$('msg').textContent='נא להזין מייל';return;}
   $('msg').textContent='שולח...';
   try{const j=await post('/api/save',{pdf:pdfB64,mail:m,skipDrive:true});$('msg').textContent=j.ok?'נשלח למייל ✔':(j.msg||'השליחה נכשלה');}catch(e){$('msg').textContent='השליחה נכשלה';}};
-$('sw').onclick=()=>{const p=$('ph').value.replace(/\D/g,'');if(!p){$('msg').textContent='נא להזין מספר';return;}
-  window.open('https://wa.me/'+p+'?text='+encodeURIComponent(summary()),'_blank');};
+// וואטסאפ: בטלפון - שולחים את קובץ ה-PDF הנעול עצמו (דרך תפריט השיתוף);
+// במחשב - וואטסאפ לא מאפשר לאתר לצרף קובץ, לכן נשלח קישור לאותו PDF נעול בדרייב
+$('sw').onclick=async()=>{
+  const file=pdfBlob&&new File([pdfBlob],'shopping-list.pdf',{type:'application/pdf'});
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'רשימת קניות'});$('msg').textContent='בחרו וואטסאפ ואת איש הקשר - הקובץ יישלח כ-PDF נעול ✔';return;}
+    catch(e){if(e.name==='AbortError')return;}
+  }
+  const p=$('ph').value.replace(/\D/g,'');if(!p){$('msg').textContent='נא להזין מספר';return;}
+  const w=window.open('','_blank');
+  $('msg').textContent='מכין קישור ל-PDF...';
+  try{
+    if(!fileId){const s=await post('/api/save',{pdf:pdfB64});if(!s.ok)throw 0;fileId=s.fileId;}
+    const j=await post('/api/share',{fileId});if(!j.ok)throw 0;
+    const text=$('t3').textContent+'\nקובץ PDF (נעול לעריכה):\n'+j.link;
+    const url='https://wa.me/'+p+'?text='+encodeURIComponent(text);
+    if(w)w.location=url;else location.href=url;
+    $('msg').textContent='נפתח וואטסאפ עם קישור ל-PDF ✔';
+  }catch(e){if(w)w.close();$('msg').textContent='יצירת הקישור נכשלה';}
+};
 </script>
 </body>
 </html>

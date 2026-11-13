@@ -73,14 +73,14 @@ app.post('/api/save', auth, async (req, res) => {
   try {
     const buf = Buffer.from(req.body.pdf || '', 'base64');
     if (!buf.length) return res.status(400).json({ ok: false, msg: 'חסר קובץ' });
-    let link = null, mailed = false;
+    let link = null, fileId = null, mailed = false;
     if (!req.body.skipDrive) {
       const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
       const r = await drive.files.create({
         requestBody: { name: `רשימת-קניות-${stamp}-${req.user}-${req.uid}.pdf`, parents: [E.DRIVE_FOLDER_ID] },
-        media: { mimeType: 'application/pdf', body: Readable.from(buf) }, fields: 'webViewLink'
+        media: { mimeType: 'application/pdf', body: Readable.from(buf) }, fields: 'id,webViewLink'
       });
-      link = r.data.webViewLink;
+      link = r.data.webViewLink; fileId = r.data.id;
     }
     const mail = (req.body.mail || '').trim();
     if (mail) {
@@ -89,7 +89,20 @@ app.post('/api/save', auth, async (req, res) => {
         .sendMail({ from: E.GMAIL_USER, to: mail, subject: 'רשימת קניות', text: 'מצורפת רשימת הקניות.', attachments: [{ filename: 'shopping-list.pdf', content: buf }] });
       mailed = true;
     }
-    res.json({ ok: true, link, mailed });
+    res.json({ ok: true, link, fileId, mailed });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false, msg: 'שגיאת שרת' }); }
+});
+
+// ---- שיתוף בוואטסאפ: פותח לצפייה (לכל מי שיש לו את הקישור) קובץ PDF של המשתמש המחובר בלבד ----
+app.post('/api/share', auth, async (req, res) => {
+  try {
+    const fileId = String(req.body.fileId || '');
+    if (!/^[\w-]{10,}$/.test(fileId)) return res.status(400).json({ ok: false, msg: 'קובץ לא תקין' });
+    const f = await drive.files.get({ fileId, fields: 'name,parents,webViewLink' });
+    if (!(f.data.parents || []).includes(E.DRIVE_FOLDER_ID) || !f.data.name.endsWith(`-${req.uid}.pdf`))
+      return res.status(403).json({ ok: false, msg: 'אין הרשאה לקובץ' });
+    await drive.permissions.create({ fileId, requestBody: { role: 'reader', type: 'anyone' } });
+    res.json({ ok: true, link: f.data.webViewLink });
   } catch (e) { console.error(e); res.status(500).json({ ok: false, msg: 'שגיאת שרת' }); }
 });
 
