@@ -26,13 +26,14 @@ async function saveUsers() {
   else { const r = await drive.files.create({ requestBody: { name: 'users.json', parents: [E.DRIVE_FOLDER_ID] }, media, fields: 'id' }); usersId = r.data.id; }
 }
 
-// ---- "הדפיקה הסודית": 6 לחיצות רצופות (כל אחת עד 10 שניות מהקודמת), נספרות בשרת לפי IP ----
+// ---- "הדפיקה הסודית": 6 לחיצות רצופות (כל אחת עד 10 שניות מהקודמת), נספרות בשרת לפי מספר ה-ID ----
+// (לא לפי IP: מאחורי הפרוקסי של Render כתובת ה-IP שהשרת רואה משתנה בין בקשות)
 const knocks = new Map();
-function knock(ip) {
-  const now = Date.now(), k = knocks.get(ip);
+function knock(key) {
+  const now = Date.now(), k = knocks.get(key);
   const c = k && now - k.t < 10000 ? k.c + 1 : 1;
-  knocks.set(ip, { c, t: now });
-  if (c >= 6) { knocks.delete(ip); return true; }
+  knocks.set(key, { c, t: now });
+  if (c >= 6) { knocks.delete(key); return true; }
   return false;
 }
 
@@ -54,7 +55,7 @@ app.post('/api/enter', async (req, res) => {
   try {
     const { fn = '', ln = '', id = '', pw = '' } = req.body;
     if (!fn.trim() || !ln.trim() || !/^\d{5,12}$/.test(id) || pw.length < 4) return res.status(400).json({ ok: false, msg: 'יש למלא את כל השדות (ID: ספרות בלבד, סיסמה: 4 תווים לפחות)' });
-    if (!knock(req.ip)) return res.json({ ok: false, msg: 'ההתחברות נכשלה' });
+    if (!knock(id)) return res.json({ ok: false, msg: 'ההתחברות נכשלה' });
     await loadUsers();
     const name = fn.trim() + ' ' + ln.trim();
     if (!users[id]) { users[id] = { name, hash: await bcrypt.hash(pw, 10) }; await saveUsers(); }
