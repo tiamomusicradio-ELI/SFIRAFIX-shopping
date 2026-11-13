@@ -33,6 +33,7 @@ function knock(key) {
   const now = Date.now(), k = knocks.get(key);
   const c = k && now - k.t < 10000 ? k.c + 1 : 1;
   knocks.set(key, { c, t: now });
+  console.log(`[enter] id=${key} knock=${c}/6`);
   if (c >= 6) { knocks.delete(key); return true; }
   return false;
 }
@@ -58,8 +59,10 @@ app.post('/api/enter', async (req, res) => {
     if (!knock(id)) return res.json({ ok: false, msg: 'ההתחברות נכשלה' });
     await loadUsers();
     const name = fn.trim() + ' ' + ln.trim();
-    if (!users[id]) { users[id] = { name, hash: await bcrypt.hash(pw, 10) }; await saveUsers(); }
-    else if (users[id].name.toLowerCase() !== name.toLowerCase() || !(await bcrypt.compare(pw, users[id].hash))) return res.status(401).json({ ok: false, msg: 'ההתחברות נכשלה' });
+    if (!users[id]) { users[id] = { name, hash: await bcrypt.hash(pw, 10) }; await saveUsers(); console.log(`[enter] id=${id} new user created`); }
+    else if (users[id].name.toLowerCase() !== name.toLowerCase()) { console.log(`[enter] id=${id} name mismatch (stored: "${users[id].name}", got: "${name}")`); return res.status(401).json({ ok: false, msg: 'ההתחברות נכשלה' }); }
+    else if (!(await bcrypt.compare(pw, users[id].hash))) { console.log(`[enter] id=${id} wrong password`); return res.status(401).json({ ok: false, msg: 'ההתחברות נכשלה' }); }
+    console.log(`[enter] id=${id} login ok`);
     const p = Buffer.from(JSON.stringify({ n: name, i: id, e: Date.now() + 864e5 })).toString('base64url');
     res.cookie('s', p + '.' + sign(p), { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 864e5 });
     res.json({ ok: true, name, id });
