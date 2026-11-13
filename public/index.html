@@ -107,7 +107,7 @@ $('finish').onclick=async()=>{
   if(!rows.length){alert('יש להזין לפחות שורה אחת');return;}
   const d=new Date().toLocaleDateString('he-IL');
   $('t3').textContent='רשימת הקניות נכון לתאריך: '+d;
-  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;$('dn3').textContent=uname;
+  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;$('dn3').textContent=user;
   $('tb3').innerHTML=rows.map(r=>'<tr>'+r.map(c=>'<td>'+c.replace(/[<>&]/g,'')+'</td>').join('')+'</tr>').join('');
   show('s3');
   $('msg').textContent='שומר בדרייב...';
