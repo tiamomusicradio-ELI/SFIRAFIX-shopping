@@ -166,6 +166,11 @@ $('sw').onclick=async()=>{
     $('msg').textContent='נפתח וואטסאפ עם קישור ל-PDF ✔';
   }catch(e){if(w)w.close();$('msg').textContent='יצירת הקישור נכשלה';}
 };
+// השכמת השרת (Render נרדם אחרי ~15 דק'): בפתיחת הדף ובכל חזרה ללשונית
+const wake=()=>fetch('/api/ping',{cache:'no-store'}).catch(()=>{});
+wake();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wake();});
+window.addEventListener('pageshow',e=>{if(e.persisted)wake();});
 </script>
 </body>
 </html>

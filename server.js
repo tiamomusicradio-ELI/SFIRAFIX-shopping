@@ -26,6 +26,30 @@ async function saveUsers() {
   else { const r = await drive.files.create({ requestBody: { name: 'users.json', parents: [E.DRIVE_FOLDER_ID] }, media, fields: 'id' }); usersId = r.data.id; }
 }
 
+// ---- תיקיית ארכיון חודשית (לפי שעון ישראל), נוצרת אוטומטית עם המסמך הראשון של החודש ----
+const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+function ilNow() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date()).map(x => [x.type, x.value]));
+  return p; // year, month, day, hour, minute
+}
+const monthFolders = new Map();
+function monthFolder(y, m) {
+  const name = `${y}-${m} (${MONTHS[+m - 1]} ${y})`;
+  if (!monthFolders.has(name)) {
+    const pr = (async () => {
+      const r = await drive.files.list({ q: `name='${name}' and '${E.DRIVE_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`, fields: 'files(id)' });
+      if (r.data.files.length) return r.data.files[0].id;
+      const c = await drive.files.create({ requestBody: { name, mimeType: 'application/vnd.google-apps.folder', parents: [E.DRIVE_FOLDER_ID] }, fields: 'id' });
+      console.log(`[drive] created month folder "${name}"`);
+      return c.data.id;
+    })();
+    pr.catch(() => monthFolders.delete(name));
+    monthFolders.set(name, pr);
+  }
+  return monthFolders.get(name);
+}
+
 // ---- "הדפיקה הסודית": 6 לחיצות רצופות (כל אחת עד 10 שניות מהקודמת), נספרות בשרת לפי מספר ה-ID ----
 // (לא לפי IP: מאחורי הפרוקסי של Render כתובת ה-IP שהשרת רואה משתנה בין בקשות)
 const knocks = new Map();
@@ -52,6 +76,9 @@ function auth(req, res, next) {
   res.status(401).json({ ok: false, msg: 'יש להתחבר' });
 }
 
+// ---- "השכמה": הדף פונה לכאן כשהוא נפתח / כשחוזרים ללשונית, כדי להעיר את השרת של Render מראש ----
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
 app.post('/api/enter', async (req, res) => {
   try {
     const { fn = '', ln = '', id = '', pw = '' } = req.body;
@@ -75,9 +102,10 @@ app.post('/api/save', auth, async (req, res) => {
     if (!buf.length) return res.status(400).json({ ok: false, msg: 'חסר קובץ' });
     let link = null, fileId = null, mailed = false;
     if (!req.body.skipDrive) {
-      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const t = ilNow(), stamp = `${t.year}-${t.month}-${t.day}-${t.hour}-${t.minute}`;
+      const folder = await monthFolder(t.year, t.month);
       const r = await drive.files.create({
-        requestBody: { name: `רשימת-קניות-${stamp}-${req.user}-${req.uid}.pdf`, parents: [E.DRIVE_FOLDER_ID] },
+        requestBody: { name: `רשימת-קניות-${stamp}-${req.user}-${req.uid}.pdf`, parents: [folder] },
         media: { mimeType: 'application/pdf', body: Readable.from(buf) }, fields: 'id,webViewLink'
       });
       link = r.data.webViewLink; fileId = r.data.id;
@@ -99,7 +127,10 @@ app.post('/api/share', auth, async (req, res) => {
     const fileId = String(req.body.fileId || '');
     if (!/^[\w-]{10,}$/.test(fileId)) return res.status(400).json({ ok: false, msg: 'קובץ לא תקין' });
     const f = await drive.files.get({ fileId, fields: 'name,parents,webViewLink' });
-    if (!(f.data.parents || []).includes(E.DRIVE_FOLDER_ID) || !f.data.name.endsWith(`-${req.uid}.pdf`))
+    const parent = (f.data.parents || [])[0];
+    let inArchive = parent === E.DRIVE_FOLDER_ID;
+    if (!inArchive && parent) inArchive = ((await drive.files.get({ fileId: parent, fields: 'parents' })).data.parents || []).includes(E.DRIVE_FOLDER_ID);
+    if (!inArchive || !f.data.name.endsWith(`-${req.uid}.pdf`))
       return res.status(403).json({ ok: false, msg: 'אין הרשאה לקובץ' });
     await drive.permissions.create({ fileId, requestBody: { role: 'reader', type: 'anyone' } });
     res.json({ ok: true, link: f.data.webViewLink });
