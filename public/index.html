@@ -34,6 +34,13 @@ td input{padding:8px;text-align:center}
 .err{color:#dc2626;font-size:14px;min-height:18px;margin-top:8px}
 #doc{background:#fff;color:#111;padding:20px;border-radius:12px}
 #doc th{background:#e8eaf8;color:#111}#doc td,#doc th{border-color:#999}
+/* עותק המסמך שממנו נוצר ה-PDF: עיצוב קבוע של דף A4, ללא תלות בגודל המסך */
+.a4doc{background:#fff;color:#111;padding:48px 56px;width:794px;font-family:Arial,sans-serif;font-size:18px;direction:rtl}
+.a4doc .title{font-size:28px;margin-bottom:28px}
+.a4doc table{width:100%;border-collapse:collapse;font-size:18px}
+.a4doc th,.a4doc td{border:1px solid #999;padding:10px;text-align:center}
+.a4doc th{background:#e8eaf8;color:#111}
+.a4doc .foot{margin-top:28px;line-height:2.1}
 </style>
 </head>
 <body>
@@ -102,12 +109,28 @@ $('finish').onclick=async()=>{
   $('msg').textContent='שומר בדרייב...';
   try{pdfBlob=await makePdf();pdfB64=await toB64(pdfBlob);const j=await post('/api/save',{pdf:pdfB64});if(j.ok)fileId=j.fileId||'';$('msg').textContent=j.ok?'נשמר בדרייב של הפרויקט ✔':(j.msg||'השמירה נכשלה');}catch(e){$('msg').textContent='השמירה בדרייב נכשלה';}
 };
+// ה-PDF מצולם מעותק של המסמך ברוחב קבוע של דף A4 (לא ברוחב המסך),
+// כך שבטלפון ובמחשב מתקבל אותו מסמך מלא. רשימה ארוכה מתחלקת לכמה דפים.
 async function makePdf(){
-  const canvas=await html2canvas($('doc'),{scale:2,backgroundColor:'#fff'});
+  const A4W=794,M=10,PW=210-2*M,PH=297-2*M; // 794px = רוחב A4 ב-96dpi; שוליים 10 מ"מ
+  const copy=$('doc').cloneNode(true);
+  copy.removeAttribute('id');copy.className='a4doc';
+  const host=document.createElement('div');
+  host.style.cssText='position:fixed;left:-10000px;top:0;width:'+A4W+'px';
+  host.appendChild(copy);document.body.appendChild(host);
+  let canvas;
+  try{canvas=await html2canvas(copy,{scale:2,backgroundColor:'#fff',windowWidth:A4W});}
+  finally{host.remove();}
   const {jsPDF}=window.jspdf;
   const pdf=new jsPDF({unit:'mm',format:'a4',encryption:{userPassword:'',ownerPassword:'owner-'+Math.random().toString(36).slice(2),userPermissions:['print']}});
-  const w=190,h=canvas.height*w/canvas.width;
-  pdf.addImage(canvas.toDataURL('image/jpeg',.95),'JPEG',10,10,w,h);
+  const pagePx=Math.floor(canvas.width*PH/PW); // גובה דף אחד בפיקסלים של הצילום
+  for(let y=0,first=true;y<canvas.height;y+=pagePx,first=false){
+    const h=Math.min(pagePx,canvas.height-y),part=document.createElement('canvas');
+    part.width=canvas.width;part.height=h;
+    part.getContext('2d').drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+    if(!first)pdf.addPage();
+    pdf.addImage(part.toDataURL('image/jpeg',.95),'JPEG',M,M,PW,h*PW/canvas.width);
+  }
   return pdf.output('blob');
 }
 async function sharePdf(){
