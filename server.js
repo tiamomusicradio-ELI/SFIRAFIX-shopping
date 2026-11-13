@@ -44,7 +44,8 @@ function monthFolder(y, m) {
       console.log(`[drive] created month folder "${name}"`);
       return c.data.id;
     })();
-    pr.catch(() => monthFolders.delete(name));
+    // לא שומרים את המזהה בזיכרון לאורך זמן: אם התיקייה נמחקה ידנית בדרייב, בשמירה הבאה תיווצר חדשה
+    pr.finally(() => monthFolders.delete(name)).catch(() => {});
     monthFolders.set(name, pr);
   }
   return monthFolders.get(name);
