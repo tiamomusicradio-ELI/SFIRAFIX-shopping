@@ -40,7 +40,10 @@ td input{padding:8px;text-align:center}
 .a4doc table{width:100%;border-collapse:collapse;font-size:18px}
 .a4doc th,.a4doc td{border:1px solid #999;padding:10px;text-align:center}
 .a4doc th{background:#e8eaf8;color:#111}
-.a4doc .foot{margin-top:28px;line-height:2.1}
+.a4doc .foot{margin-top:12px;line-height:2.1}
+.decl{margin-top:16px;font-weight:700;line-height:1.8}
+.decl .dn{display:inline-block;min-width:140px;border-bottom:1px solid currentColor;text-align:center;padding:0 6px}
+.a4doc .decl{margin-top:28px;font-size:19px}
 </style>
 </head>
 <body>
@@ -66,6 +69,7 @@ td input{padding:8px;text-align:center}
   <div id="doc">
     <div class="title" id="t3"></div>
     <table><thead><tr><th>ס.ח.</th><th>סד'</th><th>תק'</th><th>ע'</th></tr></thead><tbody id="tb3"></tbody></table>
+    <div class="decl">אני <span id="dn3" class="dn"></span> מצהיר כי קניתי וראיתי את המוצרים הרשומים בטבלה לעיל והם נמצאים במקום בטוח ונעול כנדרש !</div>
     <div class="foot">נקנה בתאריך: <span id="d3"></span><br>על-ידי: <span id="n3"></span><br>תאריך ושעת מילוי הטופס: <span id="f3"></span></div>
   </div>
   <label>כתובת מייל</label><input id="mail" type="email" dir="ltr" placeholder="name@example.com">
@@ -83,7 +87,7 @@ td input{padding:8px;text-align:center}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-let user="",rows=[],pdfB64="",pdfBlob=null,fileId="";
+let user="",uname="",rows=[],pdfB64="",pdfBlob=null,fileId="";
 const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();
 const toB64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b);});
 function addRow(){const tr=document.createElement('tr');
@@ -94,7 +98,7 @@ $('login').onclick=async()=>{
   if(!body.fn||!body.ln||!/^\d{5,12}$/.test(body.id)||body.pw.length<4){$('e1').textContent='יש למלא את כל השדות (ID: ספרות בלבד, סיסמה: 4 תווים לפחות)';return;}
   try{const r=await fetch('/api/enter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
-    if(j.ok){user=j.name+' (ID: '+j.id+')';$('e1').textContent='';addRow();show('s2');}else if(!$('s1').classList.contains('hidden'))$('e1').textContent=j.msg;
+    if(j.ok){user=j.name+' (ID: '+j.id+')';uname=j.name;$('e1').textContent='';addRow();show('s2');}else if(!$('s1').classList.contains('hidden'))$('e1').textContent=j.msg;
   }catch(e){$('e1').textContent='שגיאת תקשורת';}
 };
 $('add').onclick=addRow;
@@ -103,7 +107,7 @@ $('finish').onclick=async()=>{
   if(!rows.length){alert('יש להזין לפחות שורה אחת');return;}
   const d=new Date().toLocaleDateString('he-IL');
   $('t3').textContent='רשימת הקניות נכון לתאריך: '+d;
-  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;
+  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;$('dn3').textContent=uname;
   $('tb3').innerHTML=rows.map(r=>'<tr>'+r.map(c=>'<td>'+c.replace(/[<>&]/g,'')+'</td>').join('')+'</tr>').join('');
   show('s3');
   $('msg').textContent='שומר בדרייב...';
