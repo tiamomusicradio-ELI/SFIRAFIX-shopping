@@ -1,0 +1,92 @@
+const express = require('express'), crypto = require('crypto'), bcrypt = require('bcryptjs');
+const { google } = require('googleapis'), nodemailer = require('nodemailer'), { Readable } = require('stream');
+const E = process.env, app = express();
+app.set('trust proxy', 1);
+app.use(express.json({ limit: '15mb' }));
+app.use(express.static('public'));
+
+const oauth = new google.auth.OAuth2(E.GOOGLE_CLIENT_ID, E.GOOGLE_CLIENT_SECRET);
+oauth.setCredentials({ refresh_token: E.GOOGLE_REFRESH_TOKEN });
+const drive = google.drive({ version: 'v3', auth: oauth });
+
+// ---- משתמשים: נשמרים כקובץ users.json בתיקיית הדרייב (הדיסק של Render זמני) ----
+let users = null, usersId = null;
+async function loadUsers() {
+  if (users) return;
+  const r = await drive.files.list({ q: `name='users.json' and '${E.DRIVE_FOLDER_ID}' in parents and trashed=false`, fields: 'files(id)' });
+  if (r.data.files.length) {
+    usersId = r.data.files[0].id;
+    const f = await drive.files.get({ fileId: usersId, alt: 'media' });
+    users = typeof f.data === 'string' ? JSON.parse(f.data) : f.data;
+  } else users = {};
+}
+async function saveUsers() {
+  const media = { mimeType: 'application/json', body: Readable.from([JSON.stringify(users)]) };
+  if (usersId) await drive.files.update({ fileId: usersId, media });
+  else { const r = await drive.files.create({ requestBody: { name: 'users.json', parents: [E.DRIVE_FOLDER_ID] }, media, fields: 'id' }); usersId = r.data.id; }
+}
+
+// ---- "הדפיקה הסודית": 6 לחיצות רצופות (כל אחת עד 10 שניות מהקודמת), נספרות בשרת לפי IP ----
+const knocks = new Map();
+function knock(ip) {
+  const now = Date.now(), k = knocks.get(ip);
+  const c = k && now - k.t < 10000 ? k.c + 1 : 1;
+  knocks.set(ip, { c, t: now });
+  if (c >= 6) { knocks.delete(ip); return true; }
+  return false;
+}
+
+// ---- סשן חתום בעוגייה ----
+const sign = s => crypto.createHmac('sha256', E.SESSION_SECRET).update(s).digest('hex');
+function auth(req, res, next) {
+  const m = /(?:^|; )s=([^;]+)/.exec(req.headers.cookie || '');
+  if (m) {
+    const [p, s] = m[1].split('.'), good = sign(p);
+    if (s && s.length === good.length && crypto.timingSafeEqual(Buffer.from(s), Buffer.from(good))) {
+      const d = JSON.parse(Buffer.from(p, 'base64url').toString());
+      if (d.e > Date.now()) { req.user = d.n; req.uid = d.i; return next(); }
+    }
+  }
+  res.status(401).json({ ok: false, msg: 'יש להתחבר' });
+}
+
+app.post('/api/enter', async (req, res) => {
+  try {
+    const { fn = '', ln = '', id = '', pw = '' } = req.body;
+    if (!fn.trim() || !ln.trim() || !/^\d{5,12}$/.test(id) || pw.length < 4) return res.status(400).json({ ok: false, msg: 'יש למלא את כל השדות (ID: ספרות בלבד, סיסמה: 4 תווים לפחות)' });
+    if (!knock(req.ip)) return res.json({ ok: false, msg: 'ההתחברות נכשלה' });
+    await loadUsers();
+    const name = fn.trim() + ' ' + ln.trim();
+    if (!users[id]) { users[id] = { name, hash: await bcrypt.hash(pw, 10) }; await saveUsers(); }
+    else if (users[id].name.toLowerCase() !== name.toLowerCase() || !(await bcrypt.compare(pw, users[id].hash))) return res.status(401).json({ ok: false, msg: 'ההתחברות נכשלה' });
+    const p = Buffer.from(JSON.stringify({ n: name, i: id, e: Date.now() + 864e5 })).toString('base64url');
+    res.cookie('s', p + '.' + sign(p), { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 864e5 });
+    res.json({ ok: true, name, id });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false, msg: 'שגיאת שרת' }); }
+});
+
+app.post('/api/save', auth, async (req, res) => {
+  try {
+    const buf = Buffer.from(req.body.pdf || '', 'base64');
+    if (!buf.length) return res.status(400).json({ ok: false, msg: 'חסר קובץ' });
+    let link = null, mailed = false;
+    if (!req.body.skipDrive) {
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      const r = await drive.files.create({
+        requestBody: { name: `רשימת-קניות-${stamp}-${req.user}-${req.uid}.pdf`, parents: [E.DRIVE_FOLDER_ID] },
+        media: { mimeType: 'application/pdf', body: Readable.from(buf) }, fields: 'webViewLink'
+      });
+      link = r.data.webViewLink;
+    }
+    const mail = (req.body.mail || '').trim();
+    if (mail) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return res.status(400).json({ ok: false, msg: 'מייל לא תקין' });
+      await nodemailer.createTransport({ service: 'gmail', auth: { user: E.GMAIL_USER, pass: E.GMAIL_APP_PASSWORD } })
+        .sendMail({ from: E.GMAIL_USER, to: mail, subject: 'רשימת קניות', text: 'מצורפת רשימת הקניות.', attachments: [{ filename: 'shopping-list.pdf', content: buf }] });
+      mailed = true;
+    }
+    res.json({ ok: true, link, mailed });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false, msg: 'שגיאת שרת' }); }
+});
+
+app.listen(E.PORT || 3000, () => console.log('up'));

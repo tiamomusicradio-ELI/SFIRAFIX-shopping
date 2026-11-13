@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>רשימת קניות</title>
+<style>
+:root{--bg:#eef2fb;--card:#fff;--text:#1b2340;--muted:#5b6585;--line:#c9d2ea;--a:#4f46e5;--b:#06b6d4;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1426;--card:#1a2140;--text:#eef1ff;--muted:#9aa5cc;--line:#34406b}}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:20px}
+.wrap{width:100%;max-width:560px}
+.card{background:var(--card);border-radius:18px;padding:24px;box-shadow:0 10px 30px rgba(40,50,120,.15)}
+h1{margin:0 0 16px;text-align:center}
+label{display:block;margin:12px 0 4px;font-weight:700}
+input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:16px;background:transparent;color:inherit}
+.btn{position:relative;overflow:hidden;border:0;color:#fff;font-size:16px;font-weight:700;padding:12px 22px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--a),var(--b));transition:transform .2s,box-shadow .2s;box-shadow:0 6px 16px rgba(79,70,229,.35)}
+.btn:hover{transform:translateY(-2px) scale(1.03)}
+.btn:active{transform:scale(.97)}
+.btn::after{content:"";position:absolute;top:0;left:-80%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:shine 3.2s infinite}
+@keyframes shine{0%{left:-80%}40%,100%{left:140%}}
+.btn.full{width:100%;margin-top:18px}
+.btn.alt{background:linear-gradient(135deg,#16a34a,#22d3ee)}
+.hidden{display:none}
+.title{font-size:22px;font-weight:800;text-decoration:underline;text-align:center;margin:0 0 16px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid var(--line);padding:6px;text-align:center}
+th{font-weight:800;background:rgba(79,70,229,.12)}
+td input{padding:8px;text-align:center}
+.foot{margin-top:16px;line-height:2;font-weight:700}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.row .btn{flex:1}
+.msg{margin-top:10px;color:var(--muted);font-size:14px}
+.err{color:#dc2626;font-size:14px;min-height:18px;margin-top:8px}
+#doc{background:#fff;color:#111;padding:20px;border-radius:12px}
+#doc th{background:#e8eaf8;color:#111}#doc td,#doc th{border-color:#999}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="card" id="s1">
+  <h1>זיהוי אישי</h1>
+  <label>שם פרטי</label><input id="fn" autocomplete="off">
+  <label>שם משפחה</label><input id="ln" autocomplete="off">
+  <label>מספר ID</label><input id="idn" inputmode="numeric" autocomplete="off" dir="ltr">
+  <label>סיסמה אישית</label><input id="pw" type="password">
+  <div class="err" id="e1"></div>
+  <button class="btn full" id="login">שלח</button>
+</div>
+
+<div class="card hidden" id="s2">
+  <div class="title">רשימת הקניות נכון לתאריך: _____</div>
+  <table><thead><tr><th>ס.ח.</th><th>סד'</th><th>תק'</th><th>ע'</th></tr></thead><tbody id="tb"></tbody></table>
+  <div class="row"><button class="btn" id="add">+ הוספת שורה</button><button class="btn alt" id="finish">סיום</button></div>
+</div>
+
+<div class="card hidden" id="s3">
+  <div id="doc">
+    <div class="title" id="t3"></div>
+    <table><thead><tr><th>ס.ח.</th><th>סד'</th><th>תק'</th><th>ע'</th></tr></thead><tbody id="tb3"></tbody></table>
+    <div class="foot">נקנה בתאריך: <span id="d3"></span><br>על-ידי: <span id="n3"></span><br>תאריך ושעת מילוי הטופס: <span id="f3"></span></div>
+  </div>
+  <label>כתובת מייל</label><input id="mail" type="email" dir="ltr" placeholder="name@example.com">
+  <label>מספר וואטסאפ (עם קידומת מדינה)</label><input id="ph" type="tel" dir="ltr" placeholder="972501234567">
+  <div class="row">
+    <button class="btn" id="pdf">שיתוף PDF נעול</button>
+    <button class="btn" id="sm">שליחה למייל</button>
+    <button class="btn alt" id="sw">שליחה בוואטסאפ</button>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let user="",rows=[],pdfB64="";
+const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();
+const toB64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b);});
+function addRow(){const tr=document.createElement('tr');
+  tr.innerHTML='<td><input></td><td><input></td><td><input></td><td><input></td>';$('tb').appendChild(tr);}
+function show(id){['s1','s2','s3'].forEach(s=>$(s).classList.toggle('hidden',s!==id));}
+$('login').onclick=async()=>{
+  const body={fn:$('fn').value.trim(),ln:$('ln').value.trim(),id:$('idn').value.trim(),pw:$('pw').value};
+  if(!body.fn||!body.ln||!/^\d{5,12}$/.test(body.id)||body.pw.length<4){$('e1').textContent='יש למלא את כל השדות (ID: ספרות בלבד, סיסמה: 4 תווים לפחות)';return;}
+  try{const r=await fetch('/api/enter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(j.ok){user=j.name+' (ID: '+j.id+')';$('e1').textContent='';addRow();show('s2');}else if(!$('s1').classList.contains('hidden'))$('e1').textContent=j.msg;
+  }catch(e){$('e1').textContent='שגיאת תקשורת';}
+};
+$('add').onclick=addRow;
+$('finish').onclick=async()=>{
+  rows=[...$('tb').rows].map(r=>[...r.querySelectorAll('input')].map(i=>i.value.trim())).filter(r=>r.some(Boolean));
+  if(!rows.length){alert('יש להזין לפחות שורה אחת');return;}
+  const d=new Date().toLocaleDateString('he-IL');
+  $('t3').textContent='רשימת הקניות נכון לתאריך: '+d;
+  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;
+  $('tb3').innerHTML=rows.map(r=>'<tr>'+r.map(c=>'<td>'+c.replace(/[<>&]/g,'')+'</td>').join('')+'</tr>').join('');
+  show('s3');
+  $('msg').textContent='שומר בדרייב...';
+  try{pdfB64=await toB64(await makePdf());const j=await post('/api/save',{pdf:pdfB64});$('msg').textContent=j.ok?'נשמר בדרייב של הפרויקט ✔':(j.msg||'השמירה נכשלה');}catch(e){$('msg').textContent='השמירה בדרייב נכשלה';}
+};
+async function makePdf(){
+  const canvas=await html2canvas($('doc'),{scale:2,backgroundColor:'#fff'});
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({unit:'mm',format:'a4',encryption:{userPassword:'',ownerPassword:'owner-'+Math.random().toString(36).slice(2),userPermissions:['print']}});
+  const w=190,h=canvas.height*w/canvas.width;
+  pdf.addImage(canvas.toDataURL('image/jpeg',.95),'JPEG',10,10,w,h);
+  return pdf.output('blob');
+}
+async function sharePdf(){
+  $('msg').textContent='מכין PDF נעול לעריכה...';
+  const blob=await makePdf(),file=new File([blob],'shopping-list.pdf',{type:'application/pdf'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'רשימת קניות'});$('msg').textContent='נשלח. אפשר לבחור Drive, מייל או וואטסאפ.';return;}catch(e){}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='shopping-list.pdf';a.click();
+  $('msg').textContent='אם ההורדה לא התחילה, פתחו את הדף בדפדפן או במכשיר נייד.';
+}
+$('pdf').onclick=sharePdf;
+const summary=()=>$('t3').textContent+'\n'+rows.map(r=>r.join(' | ')).join('\n')+'\nנקנה בתאריך: '+$('d3').textContent+'\nעל-ידי: '+user+'\nתאריך ושעת מילוי: '+$('f3').textContent;
+$('sm').onclick=async()=>{const m=$('mail').value.trim();if(!m){$('msg').textContent='נא להזין מייל';return;}
+  $('msg').textContent='שולח...';
+  try{const j=await post('/api/save',{pdf:pdfB64,mail:m,skipDrive:true});$('msg').textContent=j.ok?'נשלח למייל ✔':(j.msg||'השליחה נכשלה');}catch(e){$('msg').textContent='השליחה נכשלה';}};
+$('sw').onclick=()=>{const p=$('ph').value.replace(/\D/g,'');if(!p){$('msg').textContent='נא להזין מספר';return;}
+  window.open('https://wa.me/'+p+'?text='+encodeURIComponent(summary()),'_blank');};
+</script>
+</body>
+</html>
