@@ -38,8 +38,9 @@ input::placeholder{color:var(--muted);opacity:.7}
 .btn:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(79,70,229,.42)}
 .btn:active{transform:scale(.97)}
 .btn:focus-visible{outline:none;box-shadow:0 0 0 4px var(--ring)}
-.btn::after{content:"";position:absolute;top:0;left:-80%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:shine 3.2s infinite}
-@keyframes shine{0%{left:-80%}40%,100%{left:140%}}
+.btn::after{content:"";position:absolute;top:0;left:0;width:45%;height:100%;pointer-events:none;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);-webkit-transform:translateX(-120%) skewX(-20deg);transform:translateX(-120%) skewX(-20deg);will-change:transform;-webkit-animation:shine 3.2s ease-in-out infinite;animation:shine 3.2s ease-in-out infinite}
+@-webkit-keyframes shine{0%{-webkit-transform:translateX(-120%) skewX(-20deg)}45%,100%{-webkit-transform:translateX(330%) skewX(-20deg)}}
+@keyframes shine{0%{transform:translateX(-120%) skewX(-20deg)}45%,100%{transform:translateX(330%) skewX(-20deg)}}
 .btn.full{width:100%;margin-top:18px}
 .btn.alt{background:linear-gradient(135deg,#16a34a,#22d3ee);box-shadow:0 6px 16px rgba(22,163,74,.3)}
 .btn.wa{background:linear-gradient(135deg,#128c4b,#25d366);box-shadow:0 6px 16px rgba(37,211,102,.3)}
@@ -84,7 +85,7 @@ td input{padding:8px;text-align:center}
 .pagefoot a{color:var(--muted);text-decoration:none}
 .pagefoot a:hover{color:var(--a);text-decoration:underline}
 @media (max-width:420px){body{padding:18px 12px}.card{padding:18px}.bn{font-size:20px}}
-@media (prefers-reduced-motion:reduce){.btn::after,.card{animation:none}.btn,.steps li::before{transition:none}}
+@media (prefers-reduced-motion:reduce){.card{animation:none}.btn,.steps li::before{transition:none}}
 /* עותק המסמך שממנו נוצר ה-PDF: עיצוב קבוע של דף A4, ללא תלות בגודל המסך */
 .a4doc{background:#fff;color:#111;padding:48px 56px;width:794px;font-family:Arial,sans-serif;font-size:18px;direction:rtl}
 .a4doc .title{font-size:28px;margin-bottom:28px}

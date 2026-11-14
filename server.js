@@ -3,7 +3,12 @@ const { google } = require('googleapis'), nodemailer = require('nodemailer'), { 
 const E = process.env, app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '15mb' }));
-app.use(express.static('public'));
+// בלי מטמון לדפי HTML, כדי שהנייד יקבל תמיד את הגרסה העדכנית
+app.use(express.static('public', {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 
 const oauth = new google.auth.OAuth2(E.GOOGLE_CLIENT_ID, E.GOOGLE_CLIENT_SECRET);
 oauth.setCredentials({ refresh_token: E.GOOGLE_REFRESH_TOKEN });
