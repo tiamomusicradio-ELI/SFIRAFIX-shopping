@@ -82,6 +82,16 @@ input:focus{border-color:#818cf8;box-shadow:inset 0 2px 5px rgba(0,0,0,.3),0 0 0
 .steps li.on::before{background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(255,255,255,.1) 49%,transparent 51%),linear-gradient(135deg,var(--a),var(--b));box-shadow:0 0 14px rgba(99,102,241,.6)}
 .logo{background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(255,255,255,.1) 49%,transparent 51%),linear-gradient(135deg,var(--a),var(--b));border:1px solid rgba(255,255,255,.22)}
 .hidden{display:none}
+/* כתובת מגורים: בחירת עיגול צבע */
+.addr{display:flex;gap:18px;align-items:center;margin-top:4px}
+.dot{width:46px;height:46px;border-radius:50%;cursor:pointer;padding:0;position:relative;border:2px solid rgba(255,255,255,.35);
+  background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,.08) 49%,rgba(0,0,0,.06) 51%),var(--c);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 4px 12px rgba(0,0,0,.4);transition:transform .15s,box-shadow .15s}
+.dot:hover{transform:scale(1.08)}
+.dot.sel{transform:scale(1.12);box-shadow:0 0 0 3px var(--bg),0 0 0 6px #818cf8,0 0 18px rgba(129,140,248,.6)}
+.dot.sel::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;font-size:22px;font-weight:800;color:var(--tick,#fff);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.addr-name{color:var(--muted);font-size:14px;margin-inline-start:6px}
+.pdot{display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;border:1.5px solid #555}
 .title{font-size:22px;font-weight:800;text-decoration:underline;text-align:center;margin:0 0 16px}
 table{width:100%;border-collapse:collapse}
 th,td{border:1px solid var(--line);padding:6px;text-align:center}
@@ -145,6 +155,13 @@ td input{padding:8px;text-align:center}
   <label>שם פרטי</label><input id="fn" autocomplete="off">
   <label>שם משפחה</label><input id="ln" autocomplete="off">
   <label>מספר ID</label><input id="idn" inputmode="numeric" autocomplete="off" dir="ltr">
+  <label>כתובת מגורים</label>
+  <div class="addr" id="addr" role="radiogroup" aria-label="כתובת מגורים">
+    <button type="button" class="dot" role="radio" aria-checked="false" data-c="#2563eb" data-n="כחול" style="--c:#2563eb" title="כחול" aria-label="כחול"></button>
+    <button type="button" class="dot" role="radio" aria-checked="false" data-c="#ffffff" data-n="לבן" style="--c:#ffffff;--tick:#1b2340" title="לבן" aria-label="לבן"></button>
+    <button type="button" class="dot" role="radio" aria-checked="false" data-c="#6b7c3a" data-n="ירוק זית" style="--c:#6b7c3a" title="ירוק זית" aria-label="ירוק זית"></button>
+    <span class="addr-name" id="addrName"></span>
+  </div>
   <label>סיסמה אישית</label><input id="pw" type="password">
   <div class="err" id="e1"></div>
   <button class="btn full" id="login">שלח</button>
@@ -161,7 +178,7 @@ td input{padding:8px;text-align:center}
     <div class="title" id="t3"></div>
     <table><thead><tr><th>ס.ח.</th><th>סד'</th><th>תק'</th><th>ע'</th></tr></thead><tbody id="tb3"></tbody></table>
     <div class="decl">אני <span id="dn3" class="dn"></span> מצהיר כי קניתי וראיתי את המוצרים הרשומים בטבלה לעיל והם נמצאים במקום בטוח ונעול כנדרש !</div>
-    <div class="foot">נקנה בתאריך: <span id="d3"></span><br>על-ידי: <span id="n3"></span><br>תאריך ושעת מילוי הטופס: <span id="f3"></span></div>
+    <div class="foot">נקנה בתאריך: <span id="d3"></span><br>על-ידי: <span id="n3"></span><br>כתובת מגורים: <span class="pdot" id="a3"></span><br>תאריך ושעת מילוי הטופס: <span id="f3"></span></div>
   </div>
   <label>כתובת מייל</label><input id="mail" type="email" dir="ltr" placeholder="name@example.com">
   <label>מספר וואטסאפ (עם קידומת מדינה)</label><input id="ph" type="tel" dir="ltr" placeholder="972501234567">
@@ -179,7 +196,7 @@ td input{padding:8px;text-align:center}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-let user="",uname="",rows=[],pdfB64="",pdfBlob=null,fileId="";
+let user="",uname="",rows=[],pdfB64="",pdfBlob=null,fileId="",addr=null;
 // כל בקשה מוגבלת ל-60 שניות, כדי שהמסך לא ייתקע על "שולח..." לנצח
 const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b),signal:AbortSignal.timeout?AbortSignal.timeout(60000):undefined})).json();
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -199,9 +216,15 @@ function addRow(){const tr=document.createElement('tr');
   tr.innerHTML='<td><input></td><td><input></td><td><input></td><td><input></td>';$('tb').appendChild(tr);}
 function show(id){const o=['s1','s2','s3'];o.forEach(s=>$(s).classList.toggle('hidden',s!==id));
   [...$('steps').children].forEach((li,i)=>li.classList.toggle('on',i<=o.indexOf(id)));scrollTo({top:0,behavior:'smooth'});}
+// בחירת כתובת מגורים (עיגול צבע)
+function setAddr(b){addr=b?{c:b.dataset.c,n:b.dataset.n}:null;
+  document.querySelectorAll('#addr .dot').forEach(d=>{const on=d===b;d.classList.toggle('sel',on);d.setAttribute('aria-checked',on);});
+  $('addrName').textContent=addr?addr.n:'';}
+document.querySelectorAll('#addr .dot').forEach(d=>d.onclick=()=>setAddr(d));
 $('login').onclick=async()=>{
   const body={fn:$('fn').value.trim(),ln:$('ln').value.trim(),id:$('idn').value.trim(),pw:$('pw').value};
   if(!body.fn||!body.ln||!/^\d{5,12}$/.test(body.id)||body.pw.length<4){$('e1').textContent='יש למלא את כל השדות (ID: ספרות בלבד, סיסמה: 4 תווים לפחות)';return;}
+  if(!addr){$('e1').textContent='יש לבחור כתובת מגורים';return;}
   try{const r=await fetch('/api/enter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(j.ok){user=j.name+' (ID: '+j.id+')';uname=j.name;$('e1').textContent='';addRow();show('s2');}else if(!$('s1').classList.contains('hidden'))$('e1').textContent=j.msg;
@@ -213,7 +236,7 @@ $('finish').onclick=async()=>{
   if(!rows.length){alert('יש להזין לפחות שורה אחת');return;}
   const d=new Date().toLocaleDateString('he-IL');
   $('t3').textContent='רשימת הקניות נכון לתאריך: '+d;
-  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;$('dn3').textContent=user;
+  $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;$('a3').style.background=addr?addr.c:'transparent';$('a3').title=addr?addr.n:'';$('dn3').textContent=user;
   $('tb3').innerHTML=rows.map(r=>'<tr>'+r.map(c=>'<td>'+c.replace(/[<>&]/g,'')+'</td>').join('')+'</tr>').join('');
   show('s3');
   $('msg').textContent='';
@@ -273,7 +296,7 @@ $('sw').onclick=async()=>{
 $('newbuy').onclick=()=>{
   user=uname='';rows=[];pdfB64='';pdfBlob=null;fileId='';
   $('tb').innerHTML='';$('tb3').innerHTML='';
-  ['fn','ln','idn','pw','mail','ph'].forEach(i=>$(i).value='');
+  ['fn','ln','idn','pw','mail','ph'].forEach(i=>$(i).value='');setAddr(null);
   $('msg').textContent='';$('e1').textContent='';
   show('s1');
 };
