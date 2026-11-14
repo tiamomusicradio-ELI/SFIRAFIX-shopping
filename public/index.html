@@ -4,36 +4,78 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>רשימת קניות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#eef2fb;--card:#fff;--text:#1b2340;--muted:#5b6585;--line:#c9d2ea;--a:#4f46e5;--b:#06b6d4;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1426;--card:#1a2140;--text:#eef1ff;--muted:#9aa5cc;--line:#34406b}}
+:root{--bg:#eef2fb;--card:rgba(255,255,255,.88);--text:#1b2340;--muted:#5b6585;--line:#d5dcef;--field:#f6f8fe;--ring:rgba(79,70,229,.22);--a:#4f46e5;--b:#06b6d4;--edge:rgba(255,255,255,.7);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--card:rgba(26,33,64,.86);--text:#eef1ff;--muted:#9aa5cc;--line:#34406b;--field:#121933;--ring:rgba(129,140,248,.35);--edge:rgba(255,255,255,.06)}}
 *{box-sizing:border-box}
-body{margin:0;font-family:Arial,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;justify-content:center;padding:20px}
+body{margin:0;font-family:"Heebo",Arial,"Segoe UI",sans-serif;color:var(--text);min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:28px 16px;
+  background:radial-gradient(900px 520px at 100% -10%,rgba(79,70,229,.22),transparent 60%),radial-gradient(800px 520px at -10% 110%,rgba(6,182,212,.22),transparent 60%),var(--bg);background-attachment:fixed}
 .wrap{width:100%;max-width:560px}
-.card{background:var(--card);border-radius:18px;padding:24px;box-shadow:0 10px 30px rgba(40,50,120,.15)}
-h1{margin:0 0 16px;text-align:center}
-label{display:block;margin:12px 0 4px;font-weight:700}
-input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font-size:16px;background:transparent;color:inherit}
-.btn{position:relative;overflow:hidden;border:0;color:#fff;font-size:16px;font-weight:700;padding:12px 22px;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,var(--a),var(--b));transition:transform .2s,box-shadow .2s;box-shadow:0 6px 16px rgba(79,70,229,.35)}
-.btn:hover{transform:translateY(-2px) scale(1.03)}
+/* כותרת עליונה + מחוון שלבים */
+.brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:18px}
+.logo{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:24px;background:linear-gradient(135deg,var(--a),var(--b));box-shadow:0 8px 20px rgba(79,70,229,.35)}
+.bn{font-weight:800;font-size:22px;letter-spacing:.5px;line-height:1.1}
+.bs{color:var(--muted);font-size:14px}
+.steps{display:flex;gap:8px;list-style:none;padding:0;margin:0 0 16px;counter-reset:s}
+.steps li{flex:1;text-align:center;font-size:13px;font-weight:700;color:var(--muted);counter-increment:s;position:relative;padding-top:34px}
+.steps li::before{content:counter(s);position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--card);border:2px solid var(--line);color:var(--muted);transition:all .3s}
+.steps li.on{color:var(--text)}
+.steps li.on::before{background:linear-gradient(135deg,var(--a),var(--b));border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(79,70,229,.35)}
+/* כרטיסים */
+.card{background:var(--card);border:1px solid var(--edge);border-radius:20px;padding:26px;box-shadow:0 18px 40px rgba(40,50,120,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);animation:rise .4s ease}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+h1{margin:0 0 6px;text-align:center;font-weight:800}
+.sub{text-align:center;color:var(--muted);margin:0 0 10px;font-size:15px}
+label{display:block;margin:14px 0 6px;font-weight:700;font-size:14px;color:var(--muted)}
+input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;background:var(--field);color:inherit;transition:border-color .2s,box-shadow .2s,background .2s}
+input:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 4px var(--ring)}
+input::placeholder{color:var(--muted);opacity:.7}
+/* כפתורים */
+.btn{position:relative;overflow:hidden;border:0;color:#fff;font-size:16px;font-weight:700;font-family:inherit;padding:13px 22px;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,var(--a),var(--b));transition:transform .2s,box-shadow .2s;box-shadow:0 6px 16px rgba(79,70,229,.35)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(79,70,229,.42)}
 .btn:active{transform:scale(.97)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 4px var(--ring)}
 .btn::after{content:"";position:absolute;top:0;left:-80%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:shine 3.2s infinite}
 @keyframes shine{0%{left:-80%}40%,100%{left:140%}}
 .btn.full{width:100%;margin-top:18px}
-.btn.alt{background:linear-gradient(135deg,#16a34a,#22d3ee)}
+.btn.alt{background:linear-gradient(135deg,#16a34a,#22d3ee);box-shadow:0 6px 16px rgba(22,163,74,.3)}
+.btn.wa{background:linear-gradient(135deg,#128c4b,#25d366);box-shadow:0 6px 16px rgba(37,211,102,.3)}
+.btn.ghost{background:transparent;color:var(--a);border:1.5px dashed var(--a);box-shadow:none}
+.btn.ghost::after{display:none}
+.btn.ghost:hover{background:var(--ring)}
 .hidden{display:none}
 .title{font-size:22px;font-weight:800;text-decoration:underline;text-align:center;margin:0 0 16px}
 table{width:100%;border-collapse:collapse}
 th,td{border:1px solid var(--line);padding:6px;text-align:center}
 th{font-weight:800;background:rgba(79,70,229,.12)}
 td input{padding:8px;text-align:center}
+/* טבלת ההזנה (מסך 2) */
+#s2 .title{text-decoration:none;font-size:20px}
+#s2 table{border-collapse:separate;border-spacing:0;border:1.5px solid var(--line);border-radius:14px;overflow:hidden}
+#s2 th,#s2 td{border:0;border-bottom:1px solid var(--line);border-inline-start:1px solid var(--line);padding:0}
+#s2 th:first-child,#s2 td:first-child{border-inline-start:0}
+#s2 tbody tr:last-child td{border-bottom:0}
+#s2 th{padding:11px 6px;color:#fff;background:linear-gradient(135deg,var(--a),var(--b))}
+#s2 tbody tr:nth-child(even){background:rgba(79,70,229,.05)}
+#s2 td input{border:0;border-radius:0;background:transparent;padding:12px 6px}
+#s2 td input:focus{background:var(--ring);box-shadow:none}
 .foot{margin-top:16px;line-height:2;font-weight:700}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-.row .btn{flex:1}
-.msg{margin-top:10px;color:var(--muted);font-size:14px}
-.err{color:#dc2626;font-size:14px;min-height:18px;margin-top:8px}
-#doc{background:#fff;color:#111;padding:20px;border-radius:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.row .btn{flex:1 1 140px}
+.msg{margin-top:12px;font-size:14px}
+.msg:not(:empty){padding:10px 14px;border-radius:12px;background:var(--ring);border-inline-start:4px solid var(--a)}
+.err{color:#dc2626;font-size:14px;min-height:18px;margin-top:8px;font-weight:500}
+/* תצוגה מקדימה של המסמך (מסך 3) - נראה כמו דף נייר */
+#doc{background:#fff;color:#111;padding:22px;border-radius:12px;border:1px solid #e3e6ef;box-shadow:0 4px 16px rgba(0,0,0,.08);margin-bottom:6px}
 #doc th{background:#e8eaf8;color:#111}#doc td,#doc th{border-color:#999}
+.pagefoot{text-align:center;margin-top:18px;font-size:13px}
+.pagefoot a{color:var(--muted);text-decoration:none}
+.pagefoot a:hover{color:var(--a);text-decoration:underline}
+@media (max-width:420px){body{padding:18px 12px}.card{padding:18px}.bn{font-size:20px}}
+@media (prefers-reduced-motion:reduce){.btn::after,.card{animation:none}.btn,.steps li::before{transition:none}}
 /* עותק המסמך שממנו נוצר ה-PDF: עיצוב קבוע של דף A4, ללא תלות בגודל המסך */
 .a4doc{background:#fff;color:#111;padding:48px 56px;width:794px;font-family:Arial,sans-serif;font-size:18px;direction:rtl}
 .a4doc .title{font-size:28px;margin-bottom:28px}
@@ -49,8 +91,15 @@ td input{padding:8px;text-align:center}
 <body>
 <div class="wrap">
 
+<header class="brand">
+  <div class="logo" aria-hidden="true">🛒</div>
+  <div><div class="bn">SFIRAFIX</div><div class="bs">רשימת קניות</div></div>
+</header>
+<ol class="steps" id="steps"><li class="on">זיהוי</li><li>רשימה</li><li>שליחה</li></ol>
+
 <div class="card" id="s1">
   <h1>זיהוי אישי</h1>
+  <p class="sub">מלאו את הפרטים כדי להתחיל</p>
   <label>שם פרטי</label><input id="fn" autocomplete="off">
   <label>שם משפחה</label><input id="ln" autocomplete="off">
   <label>מספר ID</label><input id="idn" inputmode="numeric" autocomplete="off" dir="ltr">
@@ -62,7 +111,7 @@ td input{padding:8px;text-align:center}
 <div class="card hidden" id="s2">
   <div class="title">רשימת הקניות נכון לתאריך: _____</div>
   <table><thead><tr><th>ס.ח.</th><th>סד'</th><th>תק'</th><th>ע'</th></tr></thead><tbody id="tb"></tbody></table>
-  <div class="row"><button class="btn" id="add">+ הוספת שורה</button><button class="btn alt" id="finish">סיום</button></div>
+  <div class="row"><button class="btn ghost" id="add">+ הוספת שורה</button><button class="btn alt" id="finish">סיום</button></div>
 </div>
 
 <div class="card hidden" id="s3">
@@ -77,11 +126,12 @@ td input{padding:8px;text-align:center}
   <div class="row">
     <button class="btn" id="pdf">שיתוף PDF נעול</button>
     <button class="btn" id="sm">שליחה למייל</button>
-    <button class="btn alt" id="sw">שליחה בוואטסאפ</button>
+    <button class="btn wa" id="sw">שליחה בוואטסאפ</button>
   </div>
   <div class="msg" id="msg"></div>
 </div>
 
+<footer class="pagefoot"><a href="privacy.html">מדיניות פרטיות</a></footer>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -92,7 +142,8 @@ const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'ap
 const toB64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b);});
 function addRow(){const tr=document.createElement('tr');
   tr.innerHTML='<td><input></td><td><input></td><td><input></td><td><input></td>';$('tb').appendChild(tr);}
-function show(id){['s1','s2','s3'].forEach(s=>$(s).classList.toggle('hidden',s!==id));}
+function show(id){const o=['s1','s2','s3'];o.forEach(s=>$(s).classList.toggle('hidden',s!==id));
+  [...$('steps').children].forEach((li,i)=>li.classList.toggle('on',i<=o.indexOf(id)));scrollTo({top:0,behavior:'smooth'});}
 $('login').onclick=async()=>{
   const body={fn:$('fn').value.trim(),ln:$('ln').value.trim(),id:$('idn').value.trim(),pw:$('pw').value};
   if(!body.fn||!body.ln||!/^\d{5,12}$/.test(body.id)||body.pw.length<4){$('e1').textContent='יש למלא את כל השדות (ID: ספרות בלבד, סיסמה: 4 תווים לפחות)';return;}
