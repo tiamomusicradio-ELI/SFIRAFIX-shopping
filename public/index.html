@@ -53,7 +53,6 @@ input::placeholder{color:var(--muted);opacity:.7}
 .btn:disabled{cursor:progress;transform:none}
 .btn.ghost:disabled{opacity:.5}
 .btn.ghost{background:transparent;color:var(--a);border:1.5px dashed var(--a);box-shadow:none}
-.btn.ghost::after{display:none}
 .btn.ghost:hover{background:var(--ring)}
 /* סגנון "זכוכית מבריקה" על רקע כהה: ברק בחצי העליון, מסגרת דקה, צל עמוק */
 .btn{--grad:linear-gradient(135deg,#4f46e5,#06b6d4);--glow:rgba(99,102,241,.45);
@@ -111,6 +110,12 @@ td input{padding:8px;text-align:center}
 .pagefoot a{color:var(--muted);text-decoration:none}
 .pagefoot a:hover{color:var(--a);text-decoration:underline}
 @media (max-width:420px){body{padding:18px 12px}.card{padding:18px}.bn{font-size:20px}}
+.btn.ghost:not(#newbuy)::after{display:none}
+/* ברק גם על עיגולי השלבים */
+.steps li::after{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:28px;height:28px;border-radius:50%;pointer-events:none;
+  background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%) no-repeat;background-size:300% 100%;animation:stepshine 3.2s ease-in-out infinite}
+.steps li:nth-child(2)::after{animation-delay:.25s}.steps li:nth-child(3)::after{animation-delay:.5s}
+@keyframes stepshine{0%{background-position:130% 0}45%,100%{background-position:-30% 0}}
 @media (prefers-reduced-motion:reduce){.card{animation:none}.btn,.steps li::before{transition:none}}
 /* עותק המסמך שממנו נוצר ה-PDF: עיצוב קבוע של דף A4, ללא תלות בגודל המסך */
 .a4doc{background:#fff;color:#111;padding:48px 56px;width:794px;font-family:Arial,sans-serif;font-size:18px;direction:rtl}
@@ -210,8 +215,8 @@ $('finish').onclick=async()=>{
   $('d3').textContent=d;$('f3').textContent=d+' '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});$('n3').textContent=user;$('dn3').textContent=user;
   $('tb3').innerHTML=rows.map(r=>'<tr>'+r.map(c=>'<td>'+c.replace(/[<>&]/g,'')+'</td>').join('')+'</tr>').join('');
   show('s3');
-  $('msg').textContent='שומר בדרייב...';
-  try{pdfBlob=await makePdf();pdfB64=await toB64(pdfBlob);const j=await post('/api/save',{pdf:pdfB64});if(j.ok)fileId=j.fileId||'';$('msg').textContent=j.ok?'נשמר בדרייב של הפרויקט ✔':(j.msg||'השמירה נכשלה');}catch(e){$('msg').textContent='השמירה בדרייב נכשלה';}
+  $('msg').textContent='';
+  try{pdfBlob=await makePdf();pdfB64=await toB64(pdfBlob);const j=await post('/api/save',{pdf:pdfB64});if(j.ok)fileId=j.fileId||'';$('msg').textContent=j.ok?'':(j.msg||'השמירה נכשלה');}catch(e){$('msg').textContent='השמירה בדרייב נכשלה';}
 };
 // ה-PDF מצולם מעותק של המסמך ברוחב קבוע של דף A4 (לא ברוחב המסך),
 // כך שבטלפון ובמחשב מתקבל אותו מסמך מלא. רשימה ארוכה מתחלקת לכמה דפים.
