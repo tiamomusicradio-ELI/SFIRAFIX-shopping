@@ -90,7 +90,6 @@ input:focus{border-color:#818cf8;box-shadow:inset 0 2px 5px rgba(0,0,0,.3),0 0 0
 .dot:hover{transform:scale(1.08)}
 .dot.sel{transform:scale(1.12);box-shadow:0 0 0 3px var(--bg),0 0 0 6px #818cf8,0 0 18px rgba(129,140,248,.6)}
 .dot.sel::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;font-size:22px;font-weight:800;color:var(--tick,#fff);text-shadow:0 1px 2px rgba(0,0,0,.35)}
-.addr-name{color:var(--muted);font-size:14px;margin-inline-start:6px}
 .pdot{display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;border:1.5px solid #555}
 .title{font-size:22px;font-weight:800;text-decoration:underline;text-align:center;margin:0 0 16px}
 table{width:100%;border-collapse:collapse}
@@ -160,7 +159,6 @@ td input{padding:8px;text-align:center}
     <button type="button" class="dot" role="radio" aria-checked="false" data-c="#2563eb" data-n="כחול" style="--c:#2563eb" title="כחול" aria-label="כחול"></button>
     <button type="button" class="dot" role="radio" aria-checked="false" data-c="#ffffff" data-n="לבן" style="--c:#ffffff;--tick:#1b2340" title="לבן" aria-label="לבן"></button>
     <button type="button" class="dot" role="radio" aria-checked="false" data-c="#6b7c3a" data-n="ירוק זית" style="--c:#6b7c3a" title="ירוק זית" aria-label="ירוק זית"></button>
-    <span class="addr-name" id="addrName"></span>
   </div>
   <label>סיסמה אישית</label><input id="pw" type="password">
   <div class="err" id="e1"></div>
@@ -218,8 +216,7 @@ function show(id){const o=['s1','s2','s3'];o.forEach(s=>$(s).classList.toggle('h
   [...$('steps').children].forEach((li,i)=>li.classList.toggle('on',i<=o.indexOf(id)));scrollTo({top:0,behavior:'smooth'});}
 // בחירת כתובת מגורים (עיגול צבע)
 function setAddr(b){addr=b?{c:b.dataset.c,n:b.dataset.n}:null;
-  document.querySelectorAll('#addr .dot').forEach(d=>{const on=d===b;d.classList.toggle('sel',on);d.setAttribute('aria-checked',on);});
-  $('addrName').textContent=addr?addr.n:'';}
+  document.querySelectorAll('#addr .dot').forEach(d=>{const on=d===b;d.classList.toggle('sel',on);d.setAttribute('aria-checked',on);});}
 document.querySelectorAll('#addr .dot').forEach(d=>d.onclick=()=>setAddr(d));
 $('login').onclick=async()=>{
   const body={fn:$('fn').value.trim(),ln:$('ln').value.trim(),id:$('idn').value.trim(),pw:$('pw').value};
