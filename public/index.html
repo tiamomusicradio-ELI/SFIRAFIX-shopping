@@ -124,11 +124,11 @@ td input{padding:8px;text-align:center}
   <label>כתובת מייל</label><input id="mail" type="email" dir="ltr" placeholder="name@example.com">
   <label>מספר וואטסאפ (עם קידומת מדינה)</label><input id="ph" type="tel" dir="ltr" placeholder="972501234567">
   <div class="row">
-    <button class="btn" id="pdf">שיתוף PDF נעול</button>
     <button class="btn" id="sm">שליחה למייל</button>
     <button class="btn wa" id="sw">שליחה בוואטסאפ</button>
   </div>
   <div class="msg" id="msg"></div>
+  <button class="btn ghost full" id="newbuy">ריכוז קנייה חדשה</button>
 </div>
 
 <footer class="pagefoot"><a href="privacy.html">מדיניות פרטיות</a></footer>
@@ -188,38 +188,36 @@ async function makePdf(){
   }
   return pdf.output('blob');
 }
-async function sharePdf(){
-  $('msg').textContent='מכין PDF נעול לעריכה...';
-  const blob=await makePdf(),file=new File([blob],'shopping-list.pdf',{type:'application/pdf'});
-  if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:'רשימת קניות'});$('msg').textContent='נשלח. אפשר לבחור Drive, מייל או וואטסאפ.';return;}catch(e){}
-  }
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='shopping-list.pdf';a.click();
-  $('msg').textContent='אם ההורדה לא התחילה, פתחו את הדף בדפדפן או במכשיר נייד.';
-}
-$('pdf').onclick=sharePdf;
-$('sm').onclick=async()=>{const m=$('mail').value.trim();if(!m){$('msg').textContent='נא להזין מייל';return;}
-  $('msg').textContent='שולח...';
-  try{const j=await post('/api/save',{pdf:pdfB64,mail:m,skipDrive:true});$('msg').textContent=j.ok?'נשלח למייל ✔':(j.msg||'השליחה נכשלה');}catch(e){$('msg').textContent='השליחה נכשלה';}};
-// וואטסאפ: בטלפון - שולחים את קובץ ה-PDF הנעול עצמו (דרך תפריט השיתוף);
-// במחשב - וואטסאפ לא מאפשר לאתר לצרף קובץ, לכן נשלח קישור לאותו PDF נעול בדרייב
+// אם יצירת ה-PDF בסיום נכשלה - יוצרים אותו שוב לפני השליחה
+async function ensurePdf(){if(!pdfB64){pdfBlob=await makePdf();pdfB64=await toB64(pdfBlob);}}
+$('sm').onclick=async()=>{const m=$('mail').value.trim();if(!m){$('msg').textContent='נא להזין כתובת מייל';return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)){$('msg').textContent='כתובת המייל לא תקינה';return;}
+  $('msg').textContent='שולח למייל...';
+  try{await ensurePdf();const j=await post('/api/save',{pdf:pdfB64,mail:m,skipDrive:true});$('msg').textContent=j.ok?'הטופס נשלח ל-'+m+' ✔':(j.msg||'השליחה נכשלה');}catch(e){$('msg').textContent='השליחה נכשלה';}};
+// וואטסאפ: נפתחת שיחה ישירות עם המספר שהוזן, עם קישור ל-PDF הנעול בדרייב
+// (וואטסאפ לא מאפשר לאתר לצרף קובץ ישירות לאיש קשר מסוים)
 $('sw').onclick=async()=>{
-  const file=pdfBlob&&new File([pdfBlob],'shopping-list.pdf',{type:'application/pdf'});
-  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:'רשימת קניות'});$('msg').textContent='בחרו וואטסאפ ואת איש הקשר - הקובץ יישלח כ-PDF נעול ✔';return;}
-    catch(e){if(e.name==='AbortError')return;}
-  }
-  const p=$('ph').value.replace(/\D/g,'');if(!p){$('msg').textContent='נא להזין מספר';return;}
+  let p=$('ph').value.replace(/\D/g,'');if(!p){$('msg').textContent='נא להזין מספר וואטסאפ';return;}
+  if(p.startsWith('0'))p='972'+p.slice(1); // 0501234567 -> 972501234567
+  if(p.length<10){$('msg').textContent='מספר הטלפון לא תקין';return;}
   const w=window.open('','_blank');
   $('msg').textContent='מכין קישור ל-PDF...';
   try{
-    if(!fileId){const s=await post('/api/save',{pdf:pdfB64});if(!s.ok)throw 0;fileId=s.fileId;}
+    if(!fileId){await ensurePdf();const s=await post('/api/save',{pdf:pdfB64});if(!s.ok)throw 0;fileId=s.fileId;}
     const j=await post('/api/share',{fileId});if(!j.ok)throw 0;
     const text=$('t3').textContent+'\nקובץ PDF (נעול לעריכה):\n'+j.link;
     const url='https://wa.me/'+p+'?text='+encodeURIComponent(text);
     if(w)w.location=url;else location.href=url;
     $('msg').textContent='נפתח וואטסאפ עם קישור ל-PDF ✔';
   }catch(e){if(w)w.close();$('msg').textContent='יצירת הקישור נכשלה';}
+};
+// ריכוז קנייה חדשה: מנקה הכל וחוזר למסך הזיהוי
+$('newbuy').onclick=()=>{
+  user=uname='';rows=[];pdfB64='';pdfBlob=null;fileId='';
+  $('tb').innerHTML='';$('tb3').innerHTML='';
+  ['fn','ln','idn','pw','mail','ph'].forEach(i=>$(i).value='');
+  $('msg').textContent='';$('e1').textContent='';
+  show('s1');
 };
 // השכמת השרת (Render נרדם אחרי ~15 דק'): בפתיחת הדף ובכל חזרה ללשונית
 const wake=()=>fetch('/api/ping',{cache:'no-store'}).catch(()=>{});
