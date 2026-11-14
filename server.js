@@ -97,6 +97,25 @@ app.post('/api/enter', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ ok: false, msg: 'שגיאת שרת' }); }
 });
 
+// ---- שליחת מייל ----
+// Render (בחשבון החינמי) חוסם יציאה לפורטים של SMTP, ולכן חיבור רגיל ל-Gmail נתקע.
+// שולחים קודם דרך Gmail API (בקשת HTTPS רגילה, עם אותו חיבור Google של הדרייב - דורש scope של gmail.send),
+// ורק אם זה נכשל מנסים SMTP עם זמן המתנה קצר, כדי שהבקשה לא תיתקע.
+const MailComposer = require('nodemailer/lib/mail-composer');
+const gmail = google.gmail({ version: 'v1', auth: oauth });
+async function sendMail(to, pdf) {
+  const msg = { from: E.GMAIL_USER, to, subject: 'רשימת קניות', text: 'מצורפת רשימת הקניות.', attachments: [{ filename: 'shopping-list.pdf', content: pdf }] };
+  try {
+    const raw = await new MailComposer(msg).compile().build();
+    await gmail.users.messages.send({ userId: 'me', requestBody: { raw: raw.toString('base64url') } });
+    console.log(`[mail] sent via Gmail API to ${to}`);
+    return;
+  } catch (e) { console.error('[mail] Gmail API failed, trying SMTP:', e.message); }
+  await nodemailer.createTransport({ service: 'gmail', auth: { user: E.GMAIL_USER, pass: E.GMAIL_APP_PASSWORD }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 20000 })
+    .sendMail(msg);
+  console.log(`[mail] sent via SMTP to ${to}`);
+}
+
 app.post('/api/save', auth, async (req, res) => {
   try {
     const buf = Buffer.from(req.body.pdf || '', 'base64');
@@ -114,8 +133,8 @@ app.post('/api/save', auth, async (req, res) => {
     const mail = (req.body.mail || '').trim();
     if (mail) {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return res.status(400).json({ ok: false, msg: 'מייל לא תקין' });
-      await nodemailer.createTransport({ service: 'gmail', auth: { user: E.GMAIL_USER, pass: E.GMAIL_APP_PASSWORD } })
-        .sendMail({ from: E.GMAIL_USER, to: mail, subject: 'רשימת קניות', text: 'מצורפת רשימת הקניות.', attachments: [{ filename: 'shopping-list.pdf', content: buf }] });
+      try { await sendMail(mail, buf); }
+      catch (e) { console.error('[mail] failed:', e.message); return res.status(502).json({ ok: false, msg: 'שליחת המייל נכשלה' }); }
       mailed = true;
     }
     res.json({ ok: true, link, fileId, mailed });

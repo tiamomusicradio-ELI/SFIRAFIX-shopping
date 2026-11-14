@@ -43,6 +43,15 @@ input::placeholder{color:var(--muted);opacity:.7}
 .btn.full{width:100%;margin-top:18px}
 .btn.alt{background:linear-gradient(135deg,#16a34a,#22d3ee);box-shadow:0 6px 16px rgba(22,163,74,.3)}
 .btn.wa{background:linear-gradient(135deg,#128c4b,#25d366);box-shadow:0 6px 16px rgba(37,211,102,.3)}
+/* אפקט מילוי בזמן שליחה: הפס מתמלא בהדרגה, ובסיום מגיע ל-100% והכפתור הופך לירוק */
+.btn{isolation:isolate}
+.btn::before{content:"";position:absolute;top:0;bottom:0;inset-inline-start:0;width:0;background:rgba(255,255,255,.32);z-index:-1}
+.btn.loading::before{width:92%;transition:width 14s cubic-bezier(.05,.7,.2,1)}
+.btn.done::before{width:100%;transition:width .35s ease}
+.btn.done{background:linear-gradient(135deg,#16a34a,#22c55e)}
+.btn.fail{background:linear-gradient(135deg,#dc2626,#f97316)}
+.btn:disabled{cursor:progress;transform:none}
+.btn.ghost:disabled{opacity:.5}
 .btn.ghost{background:transparent;color:var(--a);border:1.5px dashed var(--a);box-shadow:none}
 .btn.ghost::after{display:none}
 .btn.ghost:hover{background:var(--ring)}
@@ -138,7 +147,20 @@ td input{padding:8px;text-align:center}
 <script>
 const $=id=>document.getElementById(id);
 let user="",uname="",rows=[],pdfB64="",pdfBlob=null,fileId="";
-const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();
+// כל בקשה מוגבלת ל-60 שניות, כדי שהמסך לא ייתקע על "שולח..." לנצח
+const post=async(u,b)=>(await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b),signal:AbortSignal.timeout?AbortSignal.timeout(60000):undefined})).json();
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+// מריץ פעולת שליחה עם אפקט מילוי על הכפתור. fn מחזירה true בהצלחה או הודעת שגיאה
+async function runBtn(btn,fn){
+  const label=btn.textContent,all=[$('sm'),$('sw'),$('newbuy')];
+  all.forEach(b=>b.disabled=true);btn.classList.add('loading');
+  let r;try{r=await fn();}catch(e){r='השליחה נכשלה';}
+  btn.classList.remove('loading');
+  if(r===true){btn.classList.add('done');btn.textContent='נשלח בהצלחה!';$('msg').textContent='';}
+  else{btn.classList.add('fail');btn.textContent='השליחה נכשלה';$('msg').textContent=r||'השליחה נכשלה';}
+  await wait(2500);
+  btn.classList.remove('done','fail');btn.textContent=label;all.forEach(b=>b.disabled=false);
+}
 const toB64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b);});
 function addRow(){const tr=document.createElement('tr');
   tr.innerHTML='<td><input></td><td><input></td><td><input></td><td><input></td>';$('tb').appendChild(tr);}
@@ -192,24 +214,27 @@ async function makePdf(){
 async function ensurePdf(){if(!pdfB64){pdfBlob=await makePdf();pdfB64=await toB64(pdfBlob);}}
 $('sm').onclick=async()=>{const m=$('mail').value.trim();if(!m){$('msg').textContent='נא להזין כתובת מייל';return;}
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)){$('msg').textContent='כתובת המייל לא תקינה';return;}
-  $('msg').textContent='שולח למייל...';
-  try{await ensurePdf();const j=await post('/api/save',{pdf:pdfB64,mail:m,skipDrive:true});$('msg').textContent=j.ok?'הטופס נשלח ל-'+m+' ✔':(j.msg||'השליחה נכשלה');}catch(e){$('msg').textContent='השליחה נכשלה';}};
+  $('msg').textContent='';
+  runBtn($('sm'),async()=>{await ensurePdf();const j=await post('/api/save',{pdf:pdfB64,mail:m,skipDrive:true});return j.ok||j.msg;});};
 // וואטסאפ: נפתחת שיחה ישירות עם המספר שהוזן, עם קישור ל-PDF הנעול בדרייב
 // (וואטסאפ לא מאפשר לאתר לצרף קובץ ישירות לאיש קשר מסוים)
 $('sw').onclick=async()=>{
   let p=$('ph').value.replace(/\D/g,'');if(!p){$('msg').textContent='נא להזין מספר וואטסאפ';return;}
   if(p.startsWith('0'))p='972'+p.slice(1); // 0501234567 -> 972501234567
   if(p.length<10){$('msg').textContent='מספר הטלפון לא תקין';return;}
-  const w=window.open('','_blank');
-  $('msg').textContent='מכין קישור ל-PDF...';
-  try{
-    if(!fileId){await ensurePdf();const s=await post('/api/save',{pdf:pdfB64});if(!s.ok)throw 0;fileId=s.fileId;}
-    const j=await post('/api/share',{fileId});if(!j.ok)throw 0;
-    const text=$('t3').textContent+'\nקובץ PDF (נעול לעריכה):\n'+j.link;
-    const url='https://wa.me/'+p+'?text='+encodeURIComponent(text);
-    if(w)w.location=url;else location.href=url;
-    $('msg').textContent='נפתח וואטסאפ עם קישור ל-PDF ✔';
-  }catch(e){if(w)w.close();$('msg').textContent='יצירת הקישור נכשלה';}
+  if($('sw').disabled)return;
+  const w=window.open('','_blank'); // נפתח מיד בלחיצה, אחרת הדפדפן חוסם את החלון
+  $('msg').textContent='';
+  runBtn($('sw'),async()=>{
+    try{
+      if(!fileId){await ensurePdf();const s=await post('/api/save',{pdf:pdfB64});if(!s.ok)throw 0;fileId=s.fileId;}
+      const j=await post('/api/share',{fileId});if(!j.ok)throw 0;
+      const text=$('t3').textContent+'\nקובץ PDF (נעול לעריכה):\n'+j.link;
+      const url='https://wa.me/'+p+'?text='+encodeURIComponent(text);
+      if(w)w.location=url;else location.href=url;
+      return true;
+    }catch(e){if(w)w.close();return 'יצירת הקישור נכשלה';}
+  });
 };
 // ריכוז קנייה חדשה: מנקה הכל וחוזר למסך הזיהוי
 $('newbuy').onclick=()=>{
